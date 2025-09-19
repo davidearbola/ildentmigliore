@@ -1,0 +1,38 @@
+@import "bootstrap/scss/functions";
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+$font-family-sans-serif: 'Poppins', sans-serif;
+
+$primary: #106CF6;
+$secondary: #6c757d;
+$accent: #F17D3A;
+$light: #f8f9fa;
+$dark: #212529;
+$white: #fff;
+
+$green: #198754;
+$red: #dc3545;
+$yellow: #ffc107;
+$cyan: #0dcaf0;
+$theme-colors: (
+    "primary": $primary,
+    "secondary": $secondary,
+    "accent": $accent,
+    "success": $green,
+    "danger": $red,
+    "warning": $yellow,
+    "info": $cyan,
+    "light": $light,
+    "dark": $dark,
+    "white": $white
+);
+
+$body-bg: $white;
+$body-color: $dark;
+$headings-color: $primary;
+$link-color: $primary;
+
+$border-radius: 0.5rem;
+$card-border-width: 0;
+$card-box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08);
+
+@import "bootstrap/scss/bootstrap";
