@@ -24,6 +24,12 @@ const router = createRouter({
       component: () => import('../views/ComeFunzionaView.vue'),
       meta: { layout: 'PublicLayout', showHeader: true, showFooter: true },
     },
+    {
+      path: '/proposte/:token',
+      name: 'public-proposals',
+      component: () => import('../views/PublicProposalsView.vue'),
+      meta: { layout: 'PublicLayout', showHeader: true, showFooter: true },
+    },
     // **** ROTTE AUTH ****
     {
       path: '/login',
@@ -35,12 +41,6 @@ const router = createRouter({
       path: '/social-callback',
       name: 'social-callback',
       component: () => import('@/views/Auth/SocialCallbackView.vue'),
-      meta: { layout: 'AuthLayout', requiresGuest: true },
-    },
-    {
-      path: '/register',
-      name: 'register',
-      component: () => import('../views/Auth/RegisterView.vue'),
       meta: { layout: 'AuthLayout', requiresGuest: true },
     },
     {
@@ -97,21 +97,9 @@ const router = createRouter({
           name: 'medico-profilo-pubblico',
           component: () => import('../views/Dashboard/Public/ProfiloMedicoPublicView.vue'),
           props: true, // Passa i parametri della rotta come props al componente
-          meta: { roles: ['paziente', 'medico'] }, // Accessibile da entrambi
+          meta: { roles: ['medico'] }, // Accessibile solo da medico
         },
-        // Rotte Paziente
-        {
-          path: 'proposte',
-          name: 'dashboard-proposte',
-          component: () => import('../views/Dashboard/Paziente/ProposteView.vue'),
-          meta: { roles: ['paziente'] },
-        },
-        {
-          path: 'carica-preventivo',
-          name: 'dashboard-carica-preventivo',
-          component: () => import('../views/Dashboard/Paziente/CaricaPreventivoView.vue'),
-          meta: { roles: ['paziente'] },
-        },
+        // Rotte Paziente rimosse
 
         // Rotte Medico
         {

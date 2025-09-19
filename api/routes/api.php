@@ -29,6 +29,16 @@ Route::post('/register-medico', [AuthController::class, 'registerMedico']);
 Route::get('/province', [GeoController::class, 'getProvince']);
 Route::get('/comuni/{param}', [GeoController::class, 'getComuni']);
 
+// --- ROTTE PUBBLICHE PER PREVENTIVI ---
+Route::prefix('pubblico/preventivi')->name('pubblico.preventivi.')->group(function () {
+    Route::post('/', [PreventivoController::class, 'storePublico'])->name('store');
+    Route::get('/{preventivoPaziente}/stato', [PreventivoController::class, 'statoPublico'])->name('stato');
+    Route::post('/{preventivoPaziente}/conferma', [PreventivoController::class, 'confermaPublico'])->name('conferma');
+    Route::get('/{preventivoPaziente}/proposte-stato', [PreventivoController::class, 'proposteStatoPublico'])->name('proposte.stato');
+});
+Route::get('/pubblico/proposte/{token}', [PropostaController::class, 'showPublico'])->name('pubblico.proposte.show');
+
+
 /*
 |--------------------------------------------------------------------------
 | Rotte Protette da Autenticazione (`auth:sanctum`)
@@ -82,17 +92,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/proposte-accettate', [PropostaController::class, 'getProposteAccettatePerMedico']);
     });
 
-    // --- ROTTE PAZIENTE (Non affette dal middleware medico) ---
-    Route::post('/preventivi', [PreventivoController::class, 'store']);
-    Route::get('/preventivi/{preventivoPaziente}/stato', [PreventivoController::class, 'stato']);
-    Route::post('/preventivi/{preventivoPaziente}/conferma', [PreventivoController::class, 'conferma']);
-    Route::get('/preventivi/{preventivoPaziente}/proposte-stato', [PreventivoController::class, 'proposteStato']);
-    Route::prefix('proposte')->group(function () {
-        Route::get('/', [PropostaController::class, 'index']);
-        Route::post('/mark-as-read-paziente', [PropostaController::class, 'markProposteAsVisualizzate']);
-        Route::post('/{proposta}/accetta', [PropostaController::class, 'accetta']);
-        Route::post('/{proposta}/rifiuta', [PropostaController::class, 'rifiuta']);
-    });
+    // Le rotte per i pazienti sono state rimosse in favore del flusso pubblico
 });
 
 /*

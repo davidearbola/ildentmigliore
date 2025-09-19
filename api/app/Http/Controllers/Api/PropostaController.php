@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\Notifications\PropostaAccettataMedicoNotification;
+use App\Models\PreventivoPaziente;
 
 class PropostaController extends Controller
 {
@@ -106,5 +107,25 @@ class PropostaController extends Controller
             ->get();
 
         return response()->json($proposte);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Metodi Pubblici (Nuovo Flusso)
+    |--------------------------------------------------------------------------
+    */
+    public function showPublico(string $token)
+    {
+        $preventivo = PreventivoPaziente::where('token', $token)->firstOrFail();
+
+        $proposte = ContropropostaMedico::where('preventivo_paziente_id', $preventivo->id)
+            ->with(['medico.anagraficaMedico'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'preventivo' => $preventivo,
+            'proposte' => $proposte,
+        ]);
     }
 }

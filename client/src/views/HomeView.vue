@@ -1,17 +1,9 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
-import { useAuthStore } from '@/stores/authStore'
-import { storeToRefs } from 'pinia'
 import HeroSrc from '../assets/images/sfondo-hero-idm.jpg'
 import CtaSection from '@/components/CtaSection.vue'
-
-const authStore = useAuthStore()
-const { user } = storeToRefs(authStore)
-// const dashboardLink = computed(() => {
-//   if (!user.value) return '/login';
-//   return user.value.role === 'medico' ? '/medico/dashboard' : '/paziente/dashboard';
-// });
+import PublicQuoteUpload from '@/components/PublicQuoteUpload.vue'
 const heroStyle = computed(() => ({
   backgroundImage: `url(${HeroSrc})`,
 }))
@@ -80,28 +72,14 @@ const howItWorksSteps = [
     >
       <div class="hero-overlay"></div>
       <div class="container hero-content">
-        <h1 class="display-3 fw-bolder text-white">
-           Il tuo preventivo dentistico, al miglior prezzo garantito.
-        </h1>
-        <h3 class="text-white">Ricevi 3 proposte da dentisti selezionati della tua zona e scegli la migliore.</h3>
-        <p class="lead col-lg-8 mx-auto my-4">
-          Hai già un preventivo? Inviacelo. Noi confrontiamo, tu risparmi. <br>
-        </p>
-        <h4 class="text-accent">Servizio gratuito e senza impegno.</h4>
-
-        <!-- <div class="row mt-5 mb-4 justify-content-center">
-          <div class="col-6 col-md-4">
-            <h2 class="display-4 fw-bold text-accent">{{ Math.round(dentistCounter) }}+</h2>
-            <p class="lead">Dentisti Verificati</p>
+        <div class="row justify-content-center">
+          <div class="col-lg-10 col-xl-8">
+            <div class="card shadow-lg">
+              <div class="card-body p-4 p-md-5">
+                <PublicQuoteUpload />
+              </div>
+            </div>
           </div>
-          <div class="col-6 col-md-4">
-            <h2 class="display-4 fw-bold text-accent">{{ Math.round(quoteCounter) }}+</h2>
-            <p class="lead">Preventivi Confrontati</p>
-          </div>
-        </div> -->
-
-        <div>
-          <RouterLink :to="!user ? 'login' : '/dashboard'" class="btn btn-accent btn-lg px-5 py-3 mt-3 fw-bold text-white">{{ !user ? 'Carica Preventivo Ora' : 'Vai alla tua Dashboard' }}</RouterLink>
         </div>
       </div>
     </section>
