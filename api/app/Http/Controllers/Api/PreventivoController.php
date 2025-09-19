@@ -9,7 +9,8 @@ use App\Models\PreventivoPaziente;
 use App\Models\ContropropostaMedico; 
 use Illuminate\Http\Request;
 use Illuminate\Http\File;
-use Illuminate\Support\Facades\Auth; 
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -197,6 +198,124 @@ class PreventivoController extends Controller
         }
 
         // Controlla se esiste almeno una controproposta per questo preventivo
+        $proposteEsistono = ContropropostaMedico::where('preventivo_paziente_id', $preventivoPaziente->id)->exists();
+
+        return response()->json([
+            'proposte_pronte' => $proposteEsistono,
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Metodi Pubblici (Nuovo Flusso)
+    |--------------------------------------------------------------------------
+    */
+
+    public function storePublico(Request $request)
+    {
+        $validatedData = $request->validate([
+            'preventivo' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'email'      => 'required|email',
+            'cellulare'  => 'required|string|min:9',
+            'indirizzo'  => 'required|string|max:255',
+            'citta'      => 'required|string|max:255',
+            'cap'        => 'required|string|size:5',
+            'provincia'  => 'required|string|size:2',
+        ]);
+
+        // Geocoding
+        $address = "{$validatedData['indirizzo']}, {$validatedData['citta']}, {$validatedData['cap']}, {$validatedData['provincia']}";
+        $lat = null;
+        $lng = null;
+
+        try {
+            $response = Http::get('https://nominatim.openstreetmap.org/search', [
+                'q' => $address,
+                'format' => 'json',
+                'limit' => 1
+            ]);
+
+            if ($response->successful() && count($response->json()) > 0) {
+                $geoData = $response->json()[0];
+                $lat = $geoData['lat'];
+                $lng = $geoData['lon'];
+            }
+        } catch (\Exception $e) {
+            Log::error("Geocoding failed for address: {$address}. Error: " . $e->getMessage());
+            // Non bloccare il flusso se il geocoding fallisce, ma logga l'errore.
+        }
+
+        $file = $request->file('preventivo');
+        $filePath = $file->store('preventivi/pubblici/' . now()->format('Y-m-d'), 'public');
+
+        $preventivo = PreventivoPaziente::create([
+            'file_path'           => $filePath,
+            'file_name_originale' => $file->getClientOriginalName(),
+            'stato_elaborazione'  => 'caricato',
+            'mail_paziente'       => $validatedData['email'],
+            'cellulare_paziente'  => $validatedData['cellulare'],
+            'indirizzo_paziente'  => $validatedData['indirizzo'],
+            'citta_paziente'      => $validatedData['citta'],
+            'cap_paziente'        => $validatedData['cap'],
+            'provincia_paziente'  => $validatedData['provincia'],
+            'lat'                 => $lat,
+            'lng'                 => $lng,
+            'token'               => Str::random(40),
+        ]);
+
+        ProcessPreventivo::dispatch($preventivo);
+
+        return response()->json([
+            'success'       => true,
+            'message'       => 'Preventivo caricato con successo. Inizio elaborazione.',
+            'preventivo_id' => $preventivo->id,
+            'token'         => $preventivo->token,
+        ], 201);
+    }
+
+    public function statoPublico(PreventivoPaziente $preventivoPaziente)
+    {
+        $voci = null;
+        if ($preventivoPaziente->stato_elaborazione === 'completato') {
+            $datiPreventivo = json_decode($preventivoPaziente->json_preventivo);
+            $voci = $datiPreventivo->voci_preventivo ?? [];
+        }
+
+        return response()->json([
+            'stato_elaborazione' => $preventivoPaziente->stato_elaborazione,
+            'voci_preventivo'    => $voci,
+        ]);
+    }
+
+    public function confermaPublico(Request $request, PreventivoPaziente $preventivoPaziente)
+    {
+        if ($preventivoPaziente->stato_elaborazione !== 'completato') {
+            return response()->json(['error' => 'Il preventivo non è ancora stato elaborato.'], 422);
+        }
+
+        $validated = $request->validate([
+            'voci'                 => 'required|array',
+            'voci.*.prestazione'   => 'required|string',
+            'voci.*.quantità'      => 'required|integer|min:1',
+            'voci.*.prezzo'        => 'required|numeric|min:0',
+        ]);
+
+        $nuoveVoci = $validated['voci'];
+        $nuovoTotale = array_reduce($nuoveVoci, fn ($sum, $voce) => $sum + $voce['prezzo'], 0);
+
+        $preventivoPaziente->json_preventivo = [
+            'voci_preventivo'   => $nuoveVoci,
+            'totale_preventivo' => $nuovoTotale
+        ];
+        $preventivoPaziente->save();
+
+        GeneraControproposte::dispatch($preventivoPaziente);
+
+        return response()->json(['message' => 'Preventivo confermato. Stiamo generando le controproposte.']);
+    }
+
+    public function proposteStatoPublico(PreventivoPaziente $preventivoPaziente)
+    {
         $proposteEsistono = ContropropostaMedico::where('preventivo_paziente_id', $preventivoPaziente->id)->exists();
 
         return response()->json([

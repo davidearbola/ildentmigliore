@@ -29,9 +29,17 @@ class GeneraControproposte implements ShouldQueue
     public function handle(): void
     {
         try {
-            $pazienteAnagrafica = $this->preventivo->anagraficaPaziente;
-            $pazienteLat = $pazienteAnagrafica->lat;
-            $pazienteLng = $pazienteAnagrafica->lng;
+            // --- MODIFICA: Usa lat/lng direttamente dal preventivo ---
+            $pazienteLat = $this->preventivo->lat;
+            $pazienteLng = $this->preventivo->lng;
+
+            // --- AGGIUNTA: Controllo di sicurezza se il geocoding è fallito ---
+            if (!$pazienteLat || !$pazienteLng) {
+                Log::warning("Geocoding non disponibile per il preventivo #{$this->preventivo->id}. Impossibile trovare medici vicini.");
+                // Potremmo voler gestire questo caso in modo diverso, ma per ora il job termina.
+                return;
+            }
+
             $raggioKm = 10; // Raggio di ricerca in KM
 
             // 1. QUERY GEOSPAZIALE PER TROVARE I 3 MEDICI IDONEI PIÙ VICINI
@@ -42,7 +50,7 @@ class GeneraControproposte implements ShouldQueue
             ->whereNotNull('anagrafica_medici.step_staff_completed_at')
             ->select('users.*')
             ->selectRaw(
-                '( 6371 * acos( cos( radians(?) ) * cos( radians( lat ) ) * cos( radians( lng ) - radians(?) ) + sin( radians(?) ) * sin( radians( lat ) ) ) ) AS distance', 
+                '( 6371 * acos( cos( radians(?) ) * cos( radians( lat ) ) * cos( radians( lng ) - radians(?) ) + sin( radians(?) ) * sin( radians( lat ) ) ) ) AS distance',
                 [$pazienteLat, $pazienteLng, $pazienteLat]
             )
             ->having('distance', '<', $raggioKm)
@@ -78,16 +86,9 @@ class GeneraControproposte implements ShouldQueue
                     'json_proposta' => $jsonProposta,
                 ]);
 
-                // Crea la notifica in-app e invia l'email
-                $paziente = $pazienteAnagrafica->user;
-                $paziente->notifiche()->create([
-                    'tipo' => 'NUOVA_PROPOSTA',
-                    'messaggio' => 'Hai ricevuto una nuova proposta dallo studio "' . $medico->anagraficaMedico->ragione_sociale . '".',
-                    'url_azione' => '/dashboard/proposte' // URL relativo per il frontend
-                ]);
-                $paziente->notify(new NuovaPropostaNotification($proposta));
-
-                // Invia email al medico
+                // --- MODIFICA: La notifica al paziente verrà gestita diversamente (es. email diretta) ---
+                // Per ora, la rimuoviamo per non bloccare il flusso.
+                // La notifica al medico rimane.
                 $medico->notify(new PropostaGenerataMedicoNotification($proposta));
             }
 

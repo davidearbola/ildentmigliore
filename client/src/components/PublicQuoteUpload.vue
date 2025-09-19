@@ -3,16 +3,13 @@ import { ref, computed, onUnmounted, watch } from 'vue';
 import { Form, Field, ErrorMessage } from 'vee-validate';
 import * as yup from 'yup';
 import { useToast } from 'vue-toastification';
-import { useRouter } from 'vue-router'; 
-import { useAuthStore } from '@/stores/authStore';
+import { useRouter } from 'vue-router';
 import { usePazienteStore } from '@/stores/pazienteStore';
 import { storeToRefs } from 'pinia';
 import AddressSelector from '@/components/AddressSelector.vue';
 
 // --- STORES E ROUTER ---
-const authStore = useAuthStore();
 const pazienteStore = usePazienteStore();
-const { user } = storeToRefs(authStore);
 const { isLoading, processoPreventivo } = storeToRefs(pazienteStore);
 const toast = useToast();
 const router = useRouter();
@@ -22,30 +19,22 @@ const preventivoFile = ref(null);
 const isDragging = ref(false);
 const formRef = ref(null);
 const pollingInterval = ref(null);
+const proposalUrl = ref(''); // Per conservare l'URL delle proposte
 
 // Resetta lo stato dello store quando il componente viene montato, per assicurare una view pulita
 pazienteStore.resetProcessoPreventivo();
 
-const showAnagraficaForm = computed(() => !user.value?.anagrafica_paziente);
-
-const schema = computed(() => {
-  let baseSchema = {
-    preventivoFile: yup.mixed().required('È necessario caricare un file.')
-      .test('fileSize', 'Il file è troppo grande (max 10MB)', value => !value || (value && value.size <= 10 * 1024 * 1024))
-      .test('fileType', 'Formato non supportato (accettati: PDF, JPG, PNG)', value => !value || (value && ['application/pdf', 'image/jpeg', 'image/png'].includes(value.type))),
-  };
-
-  if (showAnagraficaForm.value) {
-    baseSchema = {
-      ...baseSchema,
-      cellulare: yup.string().required('Il cellulare è obbligatorio').min(9, 'Numero non valido'),
-      indirizzo: yup.string().required("L'indirizzo è obbligatorio"),
-      citta: yup.string().required('La città è obbligatoria'),
-      cap: yup.string().required('Il CAP è obbligatorio').length(5, 'Il CAP deve essere di 5 cifre'),
-      provincia: yup.string().required('La provincia è obbligatoria').length(2, 'La sigla deve essere di 2 lettere'),
-    };
-  }
-  return yup.object(baseSchema);
+const schema = yup.object({
+  preventivoFile: yup.mixed()
+    .required('È necessario caricare un file.')
+    .test('fileSize', 'Il file è troppo grande (max 10MB)', value => !value || (value && value.size <= 10 * 1024 * 1024))
+    .test('fileType', 'Formato non supportato (accettati: PDF, JPG, PNG)', value => !value || (value && ['application/pdf', 'image/jpeg', 'image/png'].includes(value.type))),
+  email: yup.string().required('L\'email è obbligatoria').email('Inserisci un\'email valida'),
+  cellulare: yup.string().required('Il cellulare è obbligatorio').min(9, 'Numero non valido'),
+  indirizzo: yup.string().required("L'indirizzo è obbligatorio"),
+  citta: yup.string().required('La città è obbligatoria'),
+  cap: yup.string().required('Il CAP è obbligatorio').length(5, 'Il CAP deve essere di 5 cifre'),
+  provincia: yup.string().required('La provincia è obbligatoria').length(2, 'La sigla deve essere di 2 lettere'),
 });
 
 // --- GESTIONE FILE ---
@@ -106,11 +95,11 @@ watch(
       toast.success('Abbiamo analizzato il tuo preventivo! Controlla le voci qui sotto.');
       stopPolling();
     }
-    // Aggiunto questo blocco per gestire il redirect
-    if (newStatus === 'proposte_pronte') {
-        toast.success('Proposte trovate! Ti stiamo reindirizzando...');
+    if (newStatus === 'proposte_pronte_public') {
+        toast.success('Proposte trovate! Copia e salva il link qui sotto per visualizzarle.');
         stopPolling();
-        router.push({ name: 'dashboard-proposte' });
+        // L'URL completo verrà costruito nello store e salvato qui
+        proposalUrl.value = pazienteStore.proposalPublicUrl;
     }
     if (newStatus === 'error') {
       toast.error(processoPreventivo.value.errorMessage || 'Errore sconosciuto');
@@ -130,6 +119,12 @@ const handleConfirm = async () => {
     } else {
         toast.error(response.message);
     }
+};
+
+const copyUrl = () => {
+  navigator.clipboard.writeText(proposalUrl.value).then(() => {
+    toast.success('Link copiato negli appunti!');
+  });
 };
 
 // --- FUNZIONI UTILITY PER LA TABELLA ---
@@ -194,16 +189,21 @@ onUnmounted(() => {
             </div>
             <ErrorMessage name="preventivoFile" class="text-danger small mt-2 d-block" />
 
-            <div v-if="showAnagraficaForm" class="mt-4">
+            <div class="mt-4">
               <h4 class="mb-3">Completa i tuoi dati</h4>
-              <p class="text-muted small">Queste informazioni sono necessarie solo per il primo caricamento e ci aiuteranno a trovare gli studi più vicini a te.</p>
+              <p class="text-muted small">Queste informazioni ci aiuteranno a trovare gli studi più vicini a te e a inviarti le proposte.</p>
               <div class="row g-3 mt-2 mb-3">
+                <div class="col-md-6">
+                  <label class="form-label">La tua Email</label>
+                  <Field name="email" type="email" class="form-control" :class="{'is-invalid': errors.email}" placeholder="mario.rossi@email.com" />
+                  <ErrorMessage name="email" class="text-danger small" />
+                </div>
                 <div class="col-md-6">
                   <label class="form-label">Cellulare</label>
                   <Field name="cellulare" type="tel" class="form-control" :class="{'is-invalid': errors.cellulare}" />
                   <ErrorMessage name="cellulare" class="text-danger small" />
                 </div>
-                <div class="col-md-6">
+                <div class="col-12">
                   <label class="form-label">Indirizzo (es. Via Roma, 1)</label>
                   <Field name="indirizzo" type="text" class="form-control" :class="{'is-invalid': errors.indirizzo}" />
                   <ErrorMessage name="indirizzo" class="text-danger small" />
@@ -303,6 +303,23 @@ onUnmounted(() => {
             <div class="spinner-border text-accent" role="status" style="width: 3rem; height: 3rem;"></div>
             <h4 class="mt-4">Fantastico!</h4>
             <p class="text-muted">Stiamo creando le proposte migliori per te in base al preventivo che hai confermato.</p>
+        </div>
+
+        <div v-else-if="processoPreventivo.status === 'proposte_pronte_public'" class="text-center p-5 bg-light-accent rounded-3">
+            <i class="fa-solid fa-circle-check fa-3x text-accent mb-3"></i>
+            <h3 class="fw-bold">Le tue proposte sono pronte!</h3>
+            <p class="text-muted">Conserva questo link per accedere alle tue proposte in qualsiasi momento. Non potrai recuperarlo in futuro.</p>
+
+            <div class="input-group mt-4">
+              <input type="text" class="form-control form-control-lg" :value="proposalUrl" readonly>
+              <button class="btn btn-accent" type="button" @click="copyUrl">
+                <i class="fa-solid fa-copy me-2"></i>Copia
+              </button>
+            </div>
+
+            <a :href="proposalUrl" target="_blank" class="btn btn-primary btn-lg mt-3">
+              Visualizza le Proposte Ora
+            </a>
         </div>
 
       </div>
